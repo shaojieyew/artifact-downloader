@@ -4,8 +4,8 @@ import java.io.File;
 
 public class Package {
     private String id;
-    private String groupId;
-    private String artifactId;
+    private String group;
+    private String artifact;
     private String version;
     private PackageType package_type;
     private File jar;
@@ -13,13 +13,7 @@ public class Package {
     public enum PackageType{
         MAVEN
     }
-    public Package(String groupId, String artifactId, String version){
-        this.groupId = groupId;
-        this.artifactId = artifactId;
-        this.version = version;
-    }
-
-    public Package(){}
+    public Package(){};
 
     public String getId() {
         return id;
@@ -29,20 +23,20 @@ public class Package {
         this.id = id;
     }
 
-    public String getGroupId() {
-        return groupId;
+    public String getGroup() {
+        return group;
     }
 
-    public void setGroupId(String groupId) {
-        this.groupId = groupId;
+    public void setGroup(String group) {
+        this.group = group;
     }
 
-    public String getArtifactId() {
-        return artifactId;
+    public String getArtifact() {
+        return artifact;
     }
 
-    public void setArtifactId(String artifactId) {
-        this.artifactId = artifactId;
+    public void setArtifact(String artifact) {
+        this.artifact = artifact;
     }
 
     public String getVersion() {

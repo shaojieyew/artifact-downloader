@@ -1,4 +1,4 @@
-package ysj;
+package ysj.downloader;
 
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
 import org.eclipse.aether.ConfigurationProperties;
@@ -9,6 +9,7 @@ import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory;
 import org.eclipse.aether.impl.DefaultServiceLocator;
+import org.eclipse.aether.repository.Authentication;
 import org.eclipse.aether.repository.LocalRepository;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactRequest;
@@ -26,10 +27,12 @@ import java.io.File;
 import java.util.*;
 
 public class ArtifactDownloader {
-    private String serverId;
+    private String serverId = null;
+
     private Map<String, String> headers = null;
     private String remoteRepoUrl = null;
     private String localRepoPath = null;
+
     private String username = null;
     private String password = null;
     private String privateKeyPath = null;
@@ -105,46 +108,49 @@ public class ArtifactDownloader {
 
     /**
      * download pkg specified by the params
-     * @param groupId of artifact
-     * @param artifactId of artifact
-     * @param version of artifact
-     * @param classifier of artifact
-     * @param packaging of artifact
+     * @param groupId
+     * @param artifactId
+     * @param version
+     * @param classifier
+     * @param packaging
      * @return File of downloaded pkg
      */
     public File download(String groupId, String artifactId,
-                         String version, String classifier, String packaging)
-    {
+                         String version, String classifier, String packaging) throws ArtifactResolutionException {
+        Authentication authentication = null;
+        AuthenticationBuilder auth = new AuthenticationBuilder();
+        if(username!=null)
+            auth.addUsername(username);
+        if(password!=null)
+            auth.addPassword(password);
+        if(privateKeyPath!=null)
+            auth.addPrivateKey( privateKeyPath, Optional.of(passPhase).orElse(""));
+        if(username!=null || password!=null || privateKeyPath!=null){
+            authentication=auth.build();
+        }
+
         RepositorySystem repositorySystem = newRepositorySystem();
         RepositorySystemSession session = newSession(repositorySystem,
-                new File(localRepoPath));
+                new File(localRepoPath), authentication);
         Artifact artifact = new DefaultArtifact(groupId, artifactId, classifier,
                 packaging, version);
         ArtifactRequest artifactRequest = new ArtifactRequest();
         artifactRequest.setArtifact(artifact);
         List<RemoteRepository> repositories = new ArrayList<>();
         RemoteRepository remoteRepository = new RemoteRepository.Builder(serverId,
-                "default", remoteRepoUrl).build();
+                "default", remoteRepoUrl).setAuthentication(authentication).build();
         repositories.add(remoteRepository);
         artifactRequest.setRepositories(repositories);
         File result;
-        try
+        ArtifactResult artifactResult = repositorySystem.resolveArtifact(session,
+                artifactRequest);
+        artifact = artifactResult.getArtifact();
+        if (artifact != null)
         {
-            ArtifactResult artifactResult = repositorySystem.resolveArtifact(session,
-                    artifactRequest);
-            artifact = artifactResult.getArtifact();
-            if (artifact != null)
-            {
-                result = artifact.getFile();
-            }
-            else
-            {
-                result = null;
-            }
+            result = artifact.getFile();
         }
-        catch (ArtifactResolutionException e)
+        else
         {
-            e.printStackTrace();
             result = null;
         }
         return result;
@@ -162,7 +168,7 @@ public class ArtifactDownloader {
     }
 
     private RepositorySystemSession newSession(RepositorySystem system,
-                                                      File localRepository)
+                                               File localRepository, Authentication authentication)
     {
         DefaultRepositorySystemSession session = MavenRepositorySystemUtils
                 .newSession();
@@ -173,16 +179,10 @@ public class ArtifactDownloader {
             session.setConfigProperties(configProps);
         }
 
-        AuthenticationBuilder auth = new AuthenticationBuilder();
-        if(username!=null)
-            auth.addUsername(username);
-        if(password!=null)
-            auth.addPassword(password);
-        if(privateKeyPath!=null)
-            auth.addPrivateKey( privateKeyPath, Optional.of(passPhase).orElse(""));
+
         if(username!=null ||password!=null || privateKeyPath!=null){
             DefaultAuthenticationSelector selector = new DefaultAuthenticationSelector();
-            selector.add(serverId, auth.build());
+            selector.add(serverId,authentication);
             session.setAuthenticationSelector(new ConservativeAuthenticationSelector( selector ));
         }
 
